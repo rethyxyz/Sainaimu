@@ -174,6 +174,7 @@ def ParseConfigurationFile(File):
         JSONParsed = json.loads(JSONContent)
     except json.decoder.JSONDecodeError as ExceptionInformation:
         print(f"{BAD}Error processing {TITLE}{File}{BAD}: {BLUE}{ExceptionInformation}{ENDC}")
+        sys.exit(1)
 
     try:
         FailCount = JSONParsed["FailCount"]
