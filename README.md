@@ -2,7 +2,7 @@
 Automated Linux server SSH request blocker for ufw (Uncomplicated Firewall).
 
 ## Configuration
-The default configuration file is found at `./Configuration.json`. If this file doesn't exist, it'll be created for you using the template below.
+The default configuration file is `./Configuration.json`. If this file doesn't exist, it'll be created for you using the template below.
 ```
 {
     "FailCount": 5,
@@ -11,7 +11,7 @@ The default configuration file is found at `./Configuration.json`. If this file 
 }
 ```
 
-If any syntax error occurs in the configuration file, the program will fail to run, and the line/character in question will be highlighted for the user.
+If any syntax error occurs in the configuration file, the program will fail to run, and the line/character in question will be highlighted.
 
 ### FailCount
 ```

@@ -22,6 +22,7 @@ import json
 
 # TODO Ensure that *BSD, and other Unixes use auth.log, or whatever. I think
 # it may be an OpenSSH or systemd thing...
+
 # TODO Get list of users on the system from /etc/passwd. Go through this, and
 # get awk {print $whatever}.
 
@@ -33,22 +34,27 @@ def Main():
     Stdout = []
     IPAddresses = []
     Dependencies = [ "ufw" ]
+    BadOperatingSystems = [ "Java", "Darwin", "Windows" ]
     # These commands are later used to pull information from /var/log/auth.log.
     CheckCommands = [
         ["Invalid user", "10"],
         ["Failed password for root", "11"],
         ["Failed password for invalid user", "13"],
     ]
+    
+    CheckPlatforms(BadOperatingSystems)
+    CheckArguments()
+    CheckRoot()
+    CheckDependencies(Dependencies)
+
     for SystemUser in GetSystemUsers():
         CheckCommands.append([f"Failed password for {SystemUser}", "11"])
     if not FileExists(CONFIGURATION_FILE):
         GenerateConfigurationTemplate(CONFIGURATION_FILE)
     FailCount, AllowedIPAddresses = ParseConfigurationFile(CONFIGURATION_FILE)
 
-    CheckRoot()
-    CheckDependencies(Dependencies)
-
-    if not FileExists(LOG_FILE): sys.exit(1)
+    if not FileExists(LOG_FILE):
+        sys.exit(1)
 
     for Counter in range(0, len(CheckCommands)):
         # TODO Split this line into smaller bits.
@@ -72,6 +78,12 @@ def Main():
 
     sys.exit(0)
 
+def CheckPlatforms(BadOperatingSystems):
+    for OperatingSystem in BadOperatingSystems:
+        if platform.system() == OperatingSystem:
+            print(f"{FileBasename(sys.argv[0])} can't run on {OperatingSystem}.")
+            sys.exit(1)
+
 def CheckDependencies(Dependencies):
     MissingDependencies = []
     for Dependency in Dependencies:
@@ -89,37 +101,27 @@ def CheckDependencies(Dependencies):
         sys.exit(1)
 
 def GetSystemUsers():
-    return os.popen("users").read().strip().split()
+    return os.popen("users")\
+        .read()\
+        .strip()\
+        .split()
 
 def CheckRoot():
-    if os.geteuid():
-        print(f"Run {sys.argv[0]} as root.")
+    try:
+        if os.geteuid():
+            print(f"Run {FileBasename(sys.argv[0])} as root.")
+            sys.exit(1)
+    except AttributeError:
+        print(f"{FileBasename(sys.argv[0])} can't run on Windows.")
         sys.exit(1)
 
-def ImplementColors(ColoredOutput):
-    global BLUE; global CYAN
-    global BOLD; global ENDC; global UNDERLINE; global GOOD; global TITLE; global WARNING; global BAD
+def CheckArguments():
+    if "--help" or "-h" in sys.argv:
+        DisplayHelp()
 
-    if ColoredOutput:
-        BOLD = '\033[1m'
-        ENDC = '\033[0m'
-        UNDERLINE = '\033[4m'
-        GOOD = '\033[92m'
-        TITLE = '\033[95m'
-        WARNING = '\033[93m'
-        BAD = '\033[91m'
-        BLUE = '\033[94m'
-        CYAN = '\033[96m'
-    else:
-        BOLD = ""
-        ENDC = ""
-        UNDERLINE = ""
-        GOOD = ""
-        TITLE = ""
-        WARNING = ""
-        BAD = ""
-        BLUE = ""
-        CYAN = ""
+def DisplayHelp():
+    print(f"{FileBasename(sys.argv[0])}: No arguments provided.")
+    sys.exit(0)
 
 def BlockIPAddress(IPAddress):
     # TODO Implement a SEVERITY option, to see if just blocking SSH access,
@@ -147,12 +149,11 @@ def GenerateConfigurationTemplate(File):
     print(f"Generating configuration file at {File}.")
     with open(File, "w") as FilePointer:
         FilePointer.write("""
-        {
-            \"FailCount\": 5,
-            \"ColoredOutput\": \"True\",
-            \"AllowedIPAddresses\": [ \"\" ]
-        }
-        """)
+{
+    \"FailCount\": 5,
+    \"ColoredOutput\": \"True\",
+    \"AllowedIPAddresses\": [ \"\" ]
+}""")
 
 def FileExists(File):
     Output = os.path.isfile(File)
@@ -195,7 +196,32 @@ def ParseConfigurationFile(File):
 
     return FailCount, AllowedIPAddresses
 
-if platform.system == "Windows":
-    print(sys.argv[0] + " cannot run on Windows.")
-else:
-    Main()
+def ImplementColors(ColoredOutput):
+    global BLUE; global CYAN
+    global BOLD; global ENDC; global UNDERLINE; global GOOD; global TITLE; global WARNING; global BAD
+
+    if ColoredOutput:
+        BOLD = '\033[1m'
+        ENDC = '\033[0m'
+        UNDERLINE = '\033[4m'
+        GOOD = '\033[92m'
+        TITLE = '\033[95m'
+        WARNING = '\033[93m'
+        BAD = '\033[91m'
+        BLUE = '\033[94m'
+        CYAN = '\033[96m'
+    else:
+        BOLD = ""
+        ENDC = ""
+        UNDERLINE = ""
+        GOOD = ""
+        TITLE = ""
+        WARNING = ""
+        BAD = ""
+        BLUE = ""
+        CYAN = ""
+
+def FileBasename(File):
+    return os.path.basename(File)
+
+Main()
