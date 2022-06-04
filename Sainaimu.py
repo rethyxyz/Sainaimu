@@ -116,7 +116,7 @@ def CheckRoot():
         sys.exit(1)
 
 def CheckArguments():
-    if "--help" or "-h" in sys.argv:
+    if "--help" in sys.argv or "-h" in sys.argv:
         DisplayHelp()
 
 def DisplayHelp():
@@ -165,6 +165,7 @@ def ParseConfigurationFile(File):
     # Assign the default up here. If anything goes wrong, they'll be skipped
     # later on, and handled in Main().
     AllowedIPAddresses = []
+    BlockType = "deny"
     JSONParsed = dict()
     FailCount = 5
 
@@ -178,6 +179,15 @@ def ParseConfigurationFile(File):
 
     try:
         FailCount = JSONParsed["FailCount"]
+    except KeyError:
+        pass
+
+    try:
+        BlockType = JSONParsed["BlockType"].lower()
+        if BlockType != "reject" or BlockType != "deny":
+            print("BlockType has invalid value of {BlockType}.")
+            print("Using default value Deny.")
+            BlockType = "deny"
     except KeyError:
         pass
 
