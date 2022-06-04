@@ -7,7 +7,8 @@ The default configuration file is `./Configuration.json`. If this file doesn't e
 {
     "FailCount": 5,
     "ColoredOutput": "True",
-    "AllowedIPAddresses": [ "" ]
+    "AllowedIPAddresses": [ "" ],
+    BlockType: "Deny"
 }
 ```
 
@@ -18,6 +19,7 @@ If any syntax error occurs in the configuration file, the program will fail to r
 "FailCount": 5
 ```
 Any numeric value (in the bounds of a signed, standard Python integer) can be placed here.
+
 
 ### ColoredOutput
 ```

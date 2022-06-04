@@ -146,19 +146,22 @@ def ReloadFirewall():
     print(Output)
 
 def GenerateConfigurationTemplate(File):
-    print(f"Generating configuration file at {File}.")
     with open(File, "w") as FilePointer:
-        FilePointer.write("""
+        FilePointer.write(
+"""
 {
     \"FailCount\": 5,
     \"ColoredOutput\": \"True\",
-    \"AllowedIPAddresses\": [ \"\" ]
-}""")
+    \"AllowedIPAddresses\": [ \"\" ],
+    \"BlockType\": \"Deny\"
+}
+""")
+    print(f"Generated configuration file at {File}.")
 
 def FileExists(File):
     Output = os.path.isfile(File)
     if not Output:
-        print(f"{TITLE}{File}{BLUE} file doesn't exist.{ENDC}")
+        print(f"{File} file doesn't exist.")
     return Output
 
 def ParseConfigurationFile(File):
@@ -184,9 +187,10 @@ def ParseConfigurationFile(File):
 
     try:
         BlockType = JSONParsed["BlockType"].lower()
-        if BlockType != "reject" or BlockType != "deny":
-            print("BlockType has invalid value of {BlockType}.")
-            print("Using default value Deny.")
+
+        if not BlockType == "reject" and not BlockType == "deny":
+            print(f"\"{BlockType}\" is an invalid value or BlockType.")
+            print("Using default value \"deny\".")
             BlockType = "deny"
     except KeyError:
         pass
