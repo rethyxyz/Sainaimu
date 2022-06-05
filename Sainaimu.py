@@ -29,6 +29,10 @@ import json
 CONFIGURATION_FILE = "./Configuration.json"
 LOG_FILE = "/var/log/auth.log"
 
+FAIL_COUNT_DEFAULT = 5
+BLOCK_TYPE_DEFAULT = "Deny"
+COLORED_OUTPUT_DEFAULT = "True"
+
 def Main():
     Counter = 0
     Stdout = []
@@ -41,7 +45,7 @@ def Main():
         ["Failed password for root", "11"],
         ["Failed password for invalid user", "13"],
     ]
-    
+
     CheckPlatforms(BadOperatingSystems)
     CheckArguments()
     CheckRoot()
@@ -51,7 +55,7 @@ def Main():
         CheckCommands.append([f"Failed password for {SystemUser}", "11"])
     if not FileExists(CONFIGURATION_FILE):
         GenerateConfigurationTemplate(CONFIGURATION_FILE)
-    FailCount, AllowedIPAddresses = ParseConfigurationFile(CONFIGURATION_FILE)
+    FailCount, AllowedIPAddresses, BlockType = ParseConfigurationFile(CONFIGURATION_FILE)
 
     if not FileExists(LOG_FILE):
         sys.exit(1)
@@ -68,7 +72,7 @@ def Main():
 
     for IPAddress in IPAddresses:
         if IPAddresses.count(IPAddress) >= FailCount:
-            BlockIPAddress(IPAddress)
+            BlockIPAddress(IPAddress, BlockType)
             IPAddresses = RemoveStringFromArray(IPAddress, IPAddresses)
 
     if IPAddresses:
@@ -123,10 +127,10 @@ def DisplayHelp():
     print(f"{FileBasename(sys.argv[0])}: No arguments provided.")
     sys.exit(0)
 
-def BlockIPAddress(IPAddress):
+def BlockIPAddress(IPAddress, BlockType):
     # TODO Implement a SEVERITY option, to see if just blocking SSH access,
     # SSH + Web, or ALL.
-    Output = os.popen(f"ufw deny from {IPAddress} to any").read().strip()
+    Output = os.popen(f"ufw {BlockType} from {IPAddress} to any").read().strip()
 
     if "Skipping" in Output:
         print(f"{WARNING}Already blocked {TITLE}{IPAddress}{ENDC}")
@@ -147,37 +151,37 @@ def ReloadFirewall():
 
 def GenerateConfigurationTemplate(File):
     with open(File, "w") as FilePointer:
-        FilePointer.write(
-"""
+        FilePointer.write("""
 {
-    \"FailCount\": 5,
-    \"ColoredOutput\": \"True\",
+    \"FailCount\": %s,
+    \"ColoredOutput\": \"%s\",
     \"AllowedIPAddresses\": [ \"\" ],
-    \"BlockType\": \"Deny\"
+    \"BlockType\": \"%s\"
 }
-""")
+""" % (FAIL_COUNT_DEFAULT, COLORED_OUTPUT_DEFAULT, BLOCK_TYPE_DEFAULT))
     print(f"Generated configuration file at {File}.")
 
 def FileExists(File):
     Output = os.path.isfile(File)
     if not Output:
-        print(f"{File} file doesn't exist.")
+        print(f"\"{File}\" doesn't exist.")
     return Output
 
 def ParseConfigurationFile(File):
     # Assign the default up here. If anything goes wrong, they'll be skipped
     # later on, and handled in Main().
     AllowedIPAddresses = []
-    BlockType = "deny"
     JSONParsed = dict()
-    FailCount = 5
+    BlockType = BLOCK_TYPE_DEFAULT
+    ColoredOutput = COLORED_OUTPUT_DEFAULT
+    FailCount = FAIL_COUNT_DEFAULT
 
     try:
         with open(File, "r") as FilePointer:
             JSONContent = FilePointer.read().replace("\n", "")
         JSONParsed = json.loads(JSONContent)
     except json.decoder.JSONDecodeError as ExceptionInformation:
-        print(f"{BAD}Error processing {TITLE}{File}{BAD}: {BLUE}{ExceptionInformation}{ENDC}")
+        print(f"Error processing {File}: {ExceptionInformation}.")
         sys.exit(1)
 
     try:
@@ -190,8 +194,8 @@ def ParseConfigurationFile(File):
 
         if not BlockType == "reject" and not BlockType == "deny":
             print(f"\"{BlockType}\" is an invalid value or BlockType.")
-            print("Using default value \"deny\".")
-            BlockType = "deny"
+            print("Using default value \"{BLOCK_TYPE_DEFAULT}\".")
+            BlockType = BLOCK_TYPE_DEFAULT
     except KeyError:
         pass
 
@@ -202,6 +206,7 @@ def ParseConfigurationFile(File):
 
     try:
         ColoredOutput = JSONParsed["ColoredOutput"]
+
         if ColoredOutput == "True":
             ImplementColors(True)
         else:
@@ -209,7 +214,7 @@ def ParseConfigurationFile(File):
     except KeyError:
         ImplementColors(False)
 
-    return FailCount, AllowedIPAddresses
+    return FailCount, AllowedIPAddresses, BlockType
 
 def ImplementColors(ColoredOutput):
     global BLUE; global CYAN
