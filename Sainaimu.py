@@ -20,11 +20,12 @@ import sys
 import platform
 import json
 
-# TODO Ensure that *BSD, and other Unixes use auth.log, or whatever. I think
-# it may be an OpenSSH or systemd thing...
-
+# TODO Ensure that *BSD, and other Unixes use auth.log, or whatever. I think it
+# may be an OpenSSH or systemd thing...
 # TODO Get list of users on the system from /etc/passwd. Go through this, and
 # get awk {print $whatever}.
+# TODO PrintDebug() function should take the global variable DEBUG rather than a
+# second positional argument.
 
 CONFIGURATION_FILE = "./Configuration.json"
 LOG_FILE = "/var/log/auth.log"
@@ -32,6 +33,7 @@ LOG_FILE = "/var/log/auth.log"
 FAIL_COUNT_DEFAULT = 5
 BLOCK_TYPE_DEFAULT = "Deny"
 COLORED_OUTPUT_DEFAULT = "True"
+DEBUG_DEFAULT = "False"
 
 def Main():
     Counter = 0
@@ -130,8 +132,7 @@ def DisplayHelp():
 def BlockIPAddress(IPAddress, BlockType):
     # TODO Implement a SEVERITY option, to see if just blocking SSH access,
     # SSH + Web, or ALL.
-    Output = os.popen(f"ufw {BlockType} from {IPAddress} to any").read().strip()
-
+    Output = os.popen(f"ufw {BlockType.lower()} from {IPAddress} to any").read().strip()
     if "Skipping" in Output:
         print(f"{WARNING}Already blocked {TITLE}{IPAddress}{ENDC}")
     elif "Rule updated" in Output:
@@ -156,9 +157,10 @@ def GenerateConfigurationTemplate(File):
     \"FailCount\": %s,
     \"ColoredOutput\": \"%s\",
     \"AllowedIPAddresses\": [ \"\" ],
-    \"BlockType\": \"%s\"
+    \"BlockType\": \"%s\",
+    \"Debug\": \"%s\"
 }
-""" % (FAIL_COUNT_DEFAULT, COLORED_OUTPUT_DEFAULT, BLOCK_TYPE_DEFAULT))
+""" % (FAIL_COUNT_DEFAULT, COLORED_OUTPUT_DEFAULT, BLOCK_TYPE_DEFAULT, DEBUG_DEFAULT))
     print(f"Generated configuration file at {File}.")
 
 def FileExists(File):
@@ -167,22 +169,49 @@ def FileExists(File):
         print(f"\"{File}\" doesn't exist.")
     return Output
 
+def PrintDebug(String, DEBUG):
+    if DEBUG == "True":
+        print(String)
+
 def ParseConfigurationFile(File):
     # Assign the default up here. If anything goes wrong, they'll be skipped
     # later on, and handled in Main().
+    global DEBUG
     AllowedIPAddresses = []
     JSONParsed = dict()
     BlockType = BLOCK_TYPE_DEFAULT
     ColoredOutput = COLORED_OUTPUT_DEFAULT
     FailCount = FAIL_COUNT_DEFAULT
+    DEBUG = DEBUG_DEFAULT
 
     try:
         with open(File, "r") as FilePointer:
             JSONContent = FilePointer.read().replace("\n", "")
         JSONParsed = json.loads(JSONContent)
     except json.decoder.JSONDecodeError as ExceptionInformation:
-        print(f"Error processing {File}: {ExceptionInformation}.")
+        if DEBUG_DEFAULT == "True":
+            PrintDebug(f"Error processing {File}: {ExceptionInformation}.", DEBUG_DEFAULT)
+        elif DEBUG_DEFAULT == "False":
+            print(f"Error processing {File}.")
         sys.exit(1)
+
+    try:
+        DEBUG = JSONParsed["Debug"].capitalize()
+        if not DEBUG == "True" and not DEBUG == "False":
+            DEBUG = DEBUG_DEFAULT
+            PrintDebug(f"{TITLE}\"{DEBUG}\"{BLUE} is an invalid value for DEBUG.{ENDC}", DEBUG)
+            PrintDebug(f"{BLUE}Using default value {TITLE}\"{DEBUG_DEFAULT}\"{BLUE}.{ENDC}", DEBUG)
+    except KeyError:
+        pass
+
+    try:
+        ColoredOutput = JSONParsed["ColoredOutput"]
+        if ColoredOutput == "True":
+            ImplementColors(True)
+        else:
+            ImplementColors(False)
+    except KeyError:
+        ImplementColors(False)
 
     try:
         FailCount = JSONParsed["FailCount"]
@@ -190,12 +219,11 @@ def ParseConfigurationFile(File):
         pass
 
     try:
-        BlockType = JSONParsed["BlockType"].lower()
-
-        if not BlockType == "reject" and not BlockType == "deny":
-            print(f"\"{BlockType}\" is an invalid value or BlockType.")
-            print("Using default value \"{BLOCK_TYPE_DEFAULT}\".")
+        BlockType = JSONParsed["BlockType"].capitalize()
+        if not BlockType == "Reject" and not BlockType == "Deny":
             BlockType = BLOCK_TYPE_DEFAULT
+            PrintDebug(f"{TITLE}\"{BlockType}\"{BLUE} is an invalid value for BlockType.{ENDC}", DEBUG)
+            PrintDebug("{BLUE}Using default value {TITLE}\"{BLOCK_TYPE_DEFAULT}\"{BLUE}.{ENDC}", DEBUG)
     except KeyError:
         pass
 
@@ -203,16 +231,6 @@ def ParseConfigurationFile(File):
         AllowedIPAddresses = JSONParsed["AllowedIPAddresses"]
     except KeyError:
         pass
-
-    try:
-        ColoredOutput = JSONParsed["ColoredOutput"]
-
-        if ColoredOutput == "True":
-            ImplementColors(True)
-        else:
-            ImplementColors(False)
-    except KeyError:
-        ImplementColors(False)
 
     return FailCount, AllowedIPAddresses, BlockType
 
