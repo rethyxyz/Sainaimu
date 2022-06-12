@@ -99,11 +99,11 @@ def CheckDependencies(Dependencies):
 
     if MissingDependencies:
         if len(MissingDependencies) < 2:
-            print(f"{BAD}Missing dependency:{ENDC}")
+            print(f"Missing dependency:")
         else:
-            print(f"{BAD}Missing dependencies:{ENDC}")
+            print(f"Missing dependencies:")
         for Dependency in MissingDependencies:
-            print(f"\t{TITLE}{Dependency}{ENDC}")
+            print(f"\t{Dependency}")
         sys.exit(1)
 
 def GetSystemUsers():
