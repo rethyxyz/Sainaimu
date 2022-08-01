@@ -22,24 +22,30 @@ import json
 
 # TODO Ensure that *BSD, and other Unixes use auth.log, or whatever. I think it
 # may be an OpenSSH or systemd thing...
-# TODO Get list of users on the system from /etc/passwd. Go through this, and
-# get awk {print $whatever}.
-# TODO PrintDebug() function should take the global variable DEBUG rather than a
-# second positional argument.
 
-CONFIGURATION_FILE = "./Configuration.json"
-LOG_FILE = "/var/log/auth.log"
+CONFIGURATION_FILE     = "./Configuration.json"
+LOG_FILE               = "/var/log/auth.log"
 
-FAIL_COUNT_DEFAULT = 5
-BLOCK_TYPE_DEFAULT = "Deny"
+BLOCK_TYPE_DEFAULT     = "Deny"
 COLORED_OUTPUT_DEFAULT = "True"
-DEBUG_DEFAULT = "False"
+DEBUG_DEFAULT          = "False"
+FAIL_COUNT_DEFAULT     = 5
+
+BAD                    = '\033[91m'
+BLUE                   = '\033[94m'
+BOLD                   = '\033[1m'
+CYAN                   = '\033[96m'
+ENDC                   = '\033[0m'
+GOOD                   = '\033[92m'
+TITLE                  = '\033[95m'
+UNDERLINE              = '\033[4m'
+WARNING                = '\033[93m'
 
 def Main():
-    Counter = 0
-    Stdout = []
-    IPAddresses = []
-    Dependencies = [ "ufw" ]
+    Counter             = 0
+    Stdout              = []
+    IPAddresses         = []
+    Dependencies        = [ "ufw" ]
     BadOperatingSystems = [ "Java", "Darwin", "Windows" ]
     # These commands are later used to pull information from /var/log/auth.log.
     CheckCommands = [
@@ -134,11 +140,11 @@ def BlockIPAddress(IPAddress, BlockType):
     # SSH + Web, or ALL.
     Output = os.popen(f"ufw {BlockType.lower()} from {IPAddress} to any").read().strip()
     if "Skipping" in Output:
-        print(f"{WARNING}Already blocked {TITLE}{IPAddress}{ENDC}")
+        print(f"{WARNING}Already blocked {TITLE}{IPAddress}{WARNING}.{ENDC}")
     elif "Rule updated" in Output:
-        print(f"{WARNING}Updated rule, now blocking {TITLE}{IPAddress}{ENDC}")
+        print(f"{WARNING}Updated rule, now blocking {TITLE}{IPAddress}{WARNING}.{ENDC}")
     elif "Rule added" in Output:
-        print(f"{GOOD}Blocked {TITLE}{IPAddress}{ENDC}")
+        print(f"{GOOD}Blocked {TITLE}{IPAddress}{GOOD}.{ENDC}")
     else:
         print(f"{BLUE}Other...{ENDC}")
 
@@ -161,12 +167,12 @@ def GenerateConfigurationTemplate(File):
     \"Debug\": \"%s\"
 }
 """ % (FAIL_COUNT_DEFAULT, COLORED_OUTPUT_DEFAULT, BLOCK_TYPE_DEFAULT, DEBUG_DEFAULT))
-    print(f"Generated configuration file at {File}.")
+    print(f"{WARNING}Generated configuration file at {TITLE}{File}{ENDC}.")
 
 def FileExists(File):
     Output = os.path.isfile(File)
     if not Output:
-        print(f"\"{File}\" doesn't exist.")
+        print(f"{TITLE}{File} {WARNING}doesn't exist.{ENDC}")
     return Output
 
 def PrintDebug(String, DEBUG):
@@ -205,15 +211,6 @@ def ParseConfigurationFile(File):
         pass
 
     try:
-        ColoredOutput = JSONParsed["ColoredOutput"]
-        if ColoredOutput == "True":
-            ImplementColors(True)
-        else:
-            ImplementColors(False)
-    except KeyError:
-        ImplementColors(False)
-
-    try:
         FailCount = JSONParsed["FailCount"]
     except KeyError:
         pass
@@ -233,31 +230,6 @@ def ParseConfigurationFile(File):
         pass
 
     return FailCount, AllowedIPAddresses, BlockType
-
-def ImplementColors(ColoredOutput):
-    global BLUE; global CYAN
-    global BOLD; global ENDC; global UNDERLINE; global GOOD; global TITLE; global WARNING; global BAD
-
-    if ColoredOutput:
-        BOLD = '\033[1m'
-        ENDC = '\033[0m'
-        UNDERLINE = '\033[4m'
-        GOOD = '\033[92m'
-        TITLE = '\033[95m'
-        WARNING = '\033[93m'
-        BAD = '\033[91m'
-        BLUE = '\033[94m'
-        CYAN = '\033[96m'
-    else:
-        BOLD = ""
-        ENDC = ""
-        UNDERLINE = ""
-        GOOD = ""
-        TITLE = ""
-        WARNING = ""
-        BAD = ""
-        BLUE = ""
-        CYAN = ""
 
 def FileBasename(File):
     return os.path.basename(File)
